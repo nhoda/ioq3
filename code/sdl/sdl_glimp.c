@@ -213,6 +213,7 @@ static void GLimp_DetectAvailableModes(void)
 /*
 ===============
 GLimp_SetMode
+
 ===============
 */
 static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
@@ -227,6 +228,8 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 	SDL_DisplayMode desktopMode;
 	int display = 0;
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
+	int scrWidth, scrHeight;
+	qboolean fakefullscreen = qfalse;
 
 	ri.Printf( PRINT_ALL, "Initializing OpenGL display\n");
 
@@ -279,31 +282,32 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 		// use desktop video resolution
 		if( desktopMode.h > 0 )
 		{
-			glConfig.vidWidth = desktopMode.w;
-			glConfig.vidHeight = desktopMode.h;
+			scrWidth = desktopMode.w;
+			scrHeight = desktopMode.h;
+			fakefullscreen = qtrue;
 		}
 		else
 		{
-			glConfig.vidWidth = 640;
-			glConfig.vidHeight = 480;
+			scrWidth = 640;
+			scrHeight = 480;
 			ri.Printf( PRINT_ALL,
 					"Cannot determine display resolution, assuming 640x480\n" );
 		}
 
-		glConfig.windowAspect = (float)glConfig.vidWidth / (float)glConfig.vidHeight;
+		glConfig.windowAspect = (float)scrWidth / (float)scrHeight;
 	}
-	else if ( !R_GetModeInfo( &glConfig.vidWidth, &glConfig.vidHeight, &glConfig.windowAspect, mode ) )
+	else if ( !R_GetModeInfo( &scrWidth, &scrHeight, &glConfig.windowAspect, mode ) )
 	{
 		ri.Printf( PRINT_ALL, " invalid mode\n" );
 		return RSERR_INVALID_MODE;
 	}
-	ri.Printf( PRINT_ALL, " %d %d\n", glConfig.vidWidth, glConfig.vidHeight);
+	ri.Printf( PRINT_ALL, " %d %d\n", scrWidth, scrHeight);
 
 	// Center window
 	if( r_centerWindow->integer && !fullscreen )
 	{
-		x = ( desktopMode.w / 2 ) - ( glConfig.vidWidth / 2 );
-		y = ( desktopMode.h / 2 ) - ( glConfig.vidHeight / 2 );
+		x = ( desktopMode.w / 2 ) - ( scrWidth / 2 );
+		y = ( desktopMode.h / 2 ) - ( scrHeight / 2 );
 	}
 
 	// Destroy existing state if it exists
@@ -323,7 +327,11 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 
 	if( fullscreen )
 	{
-		flags |= SDL_WINDOW_FULLSCREEN;
+		if (fakefullscreen)
+			flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+		else
+			flags |= SDL_WINDOW_FULLSCREEN;
+
 		glConfig.isFullscreen = qtrue;
 	}
 	else
@@ -333,6 +341,9 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 
 		glConfig.isFullscreen = qfalse;
 	}
+
+	if (!fullscreen || fakefullscreen)
+		flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 
 	colorBits = r_colorbits->value;
 	if ((!colorBits) || (colorBits >= 32))
@@ -446,15 +457,25 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 #endif
 
 		if( ( SDL_window = SDL_CreateWindow( CLIENT_WINDOW_TITLE, x, y,
-				glConfig.vidWidth, glConfig.vidHeight, flags ) ) == NULL )
+				scrWidth, scrHeight, flags ) ) == NULL )
 		{
 			ri.Printf( PRINT_DEVELOPER, "SDL_CreateWindow failed: %s\n", SDL_GetError( ) );
 			continue;
 		}
 
-		if( fullscreen )
+		ri.Cvar_SetValue( "cl_scrWidth", scrWidth );
+		ri.Cvar_SetValue( "cl_scrHeight", scrHeight );
+
+		if( !fullscreen || fakefullscreen )
+		{
+			SDL_GL_GetDrawableSize(SDL_window, &glConfig.vidWidth, &glConfig.vidHeight);
+		}
+		else
 		{
 			SDL_DisplayMode mode;
+
+			glConfig.vidWidth = scrWidth;
+			glConfig.vidHeight = scrHeight;
 
 			switch( testColorBits )
 			{
@@ -844,7 +865,7 @@ void GLimp_EndFrame( void )
 		qboolean    sdlToggled = qfalse;
 
 		// Find out the current state
-		fullscreen = !!( SDL_GetWindowFlags( SDL_window ) & SDL_WINDOW_FULLSCREEN );
+		fullscreen = !!( SDL_GetWindowFlags( SDL_window ) & (SDL_WINDOW_FULLSCREEN|SDL_WINDOW_FULLSCREEN_DESKTOP ));
 
 		if( r_fullscreen->integer && ri.Cvar_VariableIntegerValue( "in_nograb" ) )
 		{
@@ -858,12 +879,7 @@ void GLimp_EndFrame( void )
 
 		if( needToToggle )
 		{
-			sdlToggled = SDL_SetWindowFullscreen( SDL_window, r_fullscreen->integer ) >= 0;
-
-			// SDL_WM_ToggleFullScreen didn't work, so do it the slow way
-			if( !sdlToggled )
-				ri.Cmd_ExecuteText(EXEC_APPEND, "vid_restart\n");
-
+			ri.Cmd_ExecuteText(EXEC_APPEND, "vid_restart\n");
 			ri.IN_Restart( );
 		}
 

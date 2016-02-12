@@ -52,6 +52,9 @@ cvar_t	*cl_voip;
 cvar_t	*cl_renderer;
 #endif
 
+cvar_t	*cl_scrWidth;
+cvar_t	*cl_scrHeight;
+
 cvar_t	*cl_nodelta;
 cvar_t	*cl_debugMove;
 
@@ -3646,6 +3649,8 @@ void CL_Init( void ) {
 	cl_voipProtocol = Cvar_Get ("cl_voipProtocol", cl_voip->integer ? "opus" : "", CVAR_USERINFO | CVAR_ROM);
 #endif
 
+	cl_scrWidth = Cvar_Get("cl_scrWidth", "0", CVAR_ROM);
+	cl_scrHeight = Cvar_Get("cl_scrHeight", "0", CVAR_ROM);
 
 	// cgame might not be initialized before menu is used
 	Cvar_Get ("cg_viewsize", "100", CVAR_ARCHIVE );

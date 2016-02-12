@@ -200,6 +200,9 @@ typedef struct {
 	textureCompression_t	textureCompression;
 	qboolean				textureEnvAddAvailable;
 
+	// width and height in physical pixels.  this may differ from
+	// width and height in device independent screen coordinates
+	// on high dpi displays, e.g., mac "retina" displays
 	int						vidWidth, vidHeight;
 	// aspect is the screen's physical width / height, which may be different
 	// than scrWidth / scrHeight if the pixels are non-square

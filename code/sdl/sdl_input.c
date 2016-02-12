@@ -855,7 +855,7 @@ static void IN_ProcessEvents( void )
 							height = e.window.data2;
 
 							// check if size actually changed
-							if( cls.glconfig.vidWidth == width && cls.glconfig.vidHeight == height )
+							if( cl_scrWidth->integer == width && cl_scrHeight->integer == height )
 							{
 								break;
 							}
